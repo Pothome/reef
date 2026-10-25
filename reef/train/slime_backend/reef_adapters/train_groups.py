@@ -23,6 +23,7 @@ from reef.train.slime_backend.reef_adapters.executors.config import (
     DEFAULT_EXECUTOR_BACKEND as DEFAULT_EXECUTOR_BACKEND,
 )
 from reef.train.slime_backend.reef_adapters.executors.config import slime_executor_class
+from reef.train.slime_backend.reef_adapters.slime_arguments import REEF_MODEL_PROVIDER_PATH
 from reef.train.slime_backend.reef_adapters.worker_hooks import configure_critic_objective
 
 logger = logging.getLogger(__name__)
@@ -416,7 +417,8 @@ def prepare_critic_args(args: SlimeArguments) -> SlimeArguments:
     if not critic_args.megatron_lora_rank:
         critic_args.megatron_lora_alpha = None
         critic_args.megatron_lora_target_modules = None
-        critic_args.custom_model_provider_path = critic_args.reef_chained_model_provider_path
+        if critic_args.custom_model_provider_path == REEF_MODEL_PROVIDER_PATH:
+            critic_args.custom_model_provider_path = critic_args.reef_chained_model_provider_path
     apply_critic_checkpoint_roots(critic_args)
     return critic_args
 
@@ -439,6 +441,11 @@ def apply_critic_checkpoint_roots(critic_args: SlimeArguments) -> None:
         critic_args.override_opt_param_scheduler = True
         load, reason = critic_init, "starts from the checkpoint in --critic-init"
     else:
+        if critic_init:
+            raise ValueError(
+                f"critic-init {critic_init!r} has no latest_checkpointed_iteration.txt; "
+                "provide a checkpoint root or omit critic-init for a fresh critic"
+            )
         logger.info(
             "critic checkpoint root %s has no checkpoint yet; using the inherited load fallback",
             critic_save,
